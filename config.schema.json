@@ -46,18 +46,6 @@
         "minimum": 1,
         "maximum": 60,
         "default": 10
-      },
-      "pythonPath": {
-        "title": "Python Path",
-        "type": "string",
-        "default": "python3",
-        "required": false
-      },
-      "scriptPath": {
-        "title": "Path to Python Script",
-        "type": "string",
-        "required": false,
-        "description": "Leave blank to use the default script"
       }
     }
   },
@@ -92,9 +80,7 @@
       "expandable": true,
       "expanded": false,
       "items": [
-        "pollingInterval",
-        "pythonPath",
-        "scriptPath"
+        "pollingInterval"
       ]
     }
   ],

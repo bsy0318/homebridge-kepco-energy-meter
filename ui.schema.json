@@ -3,9 +3,7 @@
       "ui:order": [
         "name",
         "*",
-        "pollingInterval",
-        "pythonPath",
-        "scriptPath"
+        "pollingInterval"
       ],
       "name": {
         "ui:title": "Device Name",
@@ -30,23 +28,13 @@
       },
       "deviceType": {
         "ui:title": "Device Type",
-        "ui:description": "Type of device (Energy Meter)",
+        "ui:description": "장치 유형 (Energy Meter)",
         "ui:widget": "hidden"
       },
       "pollingInterval": {
         "ui:title": "Update Interval",
         "ui:description": "서버에서 데이터를 가져오는 주기 (분 단위)",
         "ui:widget": "range"
-      },
-      "pythonPath": {
-        "ui:title": "Python Path",
-        "ui:description": "Python 실행 파일의 경로 (기본값: python3)",
-        "ui:widget": "hidden"
-      },
-      "scriptPath": {
-        "ui:title": "Script Path",
-        "ui:description": "Python 스크립트의 경로 (기본값: 잘 모를 경우 비워두세요)",
-        "ui:widget": "hidden"
       }
     }
   }

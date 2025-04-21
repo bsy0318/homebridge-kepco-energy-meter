@@ -1,4 +1,4 @@
-# HomeBridge Tuya KEPCO Energy Meter Plugin
+# HomeBridge KEPCO Energy Meter Plugin
 
 한국전력공사(KEPCO) 파워플래너 API에서 전력 사용량 데이터를 가져와 Apple HomeKit의 에너지 미터로 사용할 수 있습니다.
 
@@ -11,25 +11,38 @@
 ## 필수 조건
 
 - HomeBridge 설치 및 실행
-- Python 3.x 설치
 - 파워플래너 계정 [고객번호(또는 한전ON ID) 및 비밀번호]
 
 ## 설치 방법
 
-1. npm을 통해 플러그인 설치:
+1. HomeBridge 플러그인 디렉터리로 이동합니다:
+   ```bash
+   cd ~/.homebridge/node_modules/
+   ```
 
-```bash
-npm install -g homebridge-tuya-kepco-energy-meter
-```
+2. 플러그인 디렉터리를 생성합니다:
+   ```bash
+   mkdir homebridge-kepco-energy-meter
+   cd homebridge-kepco-energy-meter
+   ```
 
-2. HomeBridge에서 플러그인을 구성합니다 (아래 구성 섹션 참조).
+3. 파일을 다운로드하거나 복사합니다:
+   - `index.js`
+   - `package.json`
+   - `config.schema.json`
+   - `ui.schema.json`
+
+4. 의존성을 설치합니다:
+   ```bash
+   npm install
+   ```
 
 ## 구성
 
 HomeBridge UI를 통해 구성하는 경우:
 
 1. HomeBridge UI 설정으로 이동
-2. "플러그인" 탭에서 "Tuya KEPCO Energy Meter"를 찾습니다
+2. "플러그인" 탭에서 "KEPCO Energy Meter"를 찾습니다
 3. "설정" 버튼을 클릭하여 구성 인터페이스를 엽니다
 4. 필수 정보를 입력합니다:
    - 고객번호(또는 한전ON ID)
@@ -43,7 +56,7 @@ HomeBridge UI를 통해 구성하는 경우:
 {
   "platforms": [
     {
-      "platform": "TuyaKEPCOEnergyMeter",
+      "platform": "KEPCOEnergyMeter",
       "name": "KEPCO Energy Meter",
       "userId": "고객번호_또는_한전ON_ID",
       "userPwd": "파워플래너_PW",
@@ -67,23 +80,27 @@ HomeBridge UI를 통해 구성하는 경우:
 | `deviceName` | 장치 표시 이름 | "KEPCO Energy Meter" |
 | `deviceType` | 장치 유형 | "energymeter" |
 | `pollingInterval` | 데이터 업데이트 주기 (분) | 10 |
-| `pythonPath` | Python 실행 파일 경로 | "python3" |
-| `scriptPath` | Python 스크립트 경로 | 자동 생성 |
 
+## 문제 해결
+
+문제가 발생하면 HomeBridge 로그에서 오류 메시지를 확인하세요:
+
+1. HomeBridge UI의 로그 탭에서 확인
+2. 또는 명령줄에서 HomeBridge 로그 확인:
+   ```bash
+   sudo journalctl -u homebridge -f
+   ```
+
+일반적인 문제:
+- 잘못된 계정 정보: KEPCO 웹사이트에서 로그인이 정상적으로 되는지 확인하세요
+- 네트워크 오류: 인터넷 연결 상태를 확인하세요
+- RSA 암호화 오류: `node-rsa` 패키지가 정상적으로 설치되었는지 확인하세요
 
 ## 종속성
 
 - Node.js 종속성:
-  - child_process
-  - path
-  - fs
-
-- Python 종속성 (`powerplan.py` 스크립트에 필요):
-  - json
-  - datetime
-  - requests
-  - bs4 (BeautifulSoup)
-  - jsbn
+  - axios: HTTP 요청 처리
+  - node-rsa: RSA 암호화
 
 ## 라이센스
 
