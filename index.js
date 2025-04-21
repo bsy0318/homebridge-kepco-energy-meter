@@ -30,6 +30,7 @@ class KEPCOPlatform {
     if (this.api) {
       this.api.on('didFinishLaunching', () => {
         this.log.info('KEPCO Energy Meter plugin initialized.');
+        this.registerAccessories();
         this.startPolling();
       });
     }
@@ -115,31 +116,42 @@ class KEPCOPlatform {
       
       // Update all registered accessories
       this.accessories.forEach(accessory => {
-        const service = accessory.getService(Service.PowerMeterService);
+        // 전력 서비스
+        const service = accessory.getService(Service.Outlet);
         if (service) {
+          // 현재 전력 사용량을 On/Off 상태로 표시
           service.updateCharacteristic(
-            Characteristic.CurrentPowerConsumption, 
-            this.currentPowerConsumption
+            Characteristic.On, 
+            this.currentPowerConsumption > 0
           );
           
+          // 현재 전력 소비량을 밝기 값으로 매핑 (0-100%)
+          let brightness = Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100));
           service.updateCharacteristic(
-            Characteristic.TotalEnergyConsumption, 
+            Characteristic.Brightness, 
+            brightness
+          );
+        }
+        
+        // 센서 서비스 - 현재 전력 소비량을 표시
+        const powerService = accessory.getService('Current Power') ||
+                             accessory.getService(Service.LightSensor);
+        if (powerService) {
+          // LightSensor의 CurrentAmbientLightLevel을 사용하여 현재 전력 표시
+          powerService.updateCharacteristic(
+            Characteristic.CurrentAmbientLightLevel, 
+            Math.max(0.0001, this.currentPowerConsumption / 1000) // lux 값은 0.0001 이상이어야 함
+          );
+        }
+        
+        // 센서 서비스 - 총 에너지 소비량을 표시
+        const totalEnergyService = accessory.getService('Total Energy') ||
+                                  accessory.getService('Total Energy Consumption');
+        if (totalEnergyService && totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)) {
+          // 일부 센서는 온도 특성을 사용하여 데이터를 표시할 수 있음
+          totalEnergyService.updateCharacteristic(
+            Characteristic.CurrentTemperature, 
             this.totalEnergyConsumption
-          );
-          
-          service.updateCharacteristic(
-            Characteristic.Voltage, 
-            this.voltage
-          );
-          
-          service.updateCharacteristic(
-            Characteristic.ElectricCurrent, 
-            this.current
-          );
-          
-          service.updateCharacteristic(
-            Characteristic.PowerFactor, 
-            this.powerFactor
           );
         }
       });
@@ -340,30 +352,51 @@ class KEPCOPlatform {
       this.log.info('Identify requested for %s', accessory.displayName);
     });
     
-    // Get the service if it exists
-    let service = accessory.getService(Service.PowerMeterService);
+    // 콘센트 서비스 추가 (On/Off + Brightness로 전력 사용량 표시)
+    let outletService = accessory.getService(Service.Outlet);
     
-    // Create the service if it doesn't exist
-    if (!service) {
-      this.log.debug('Creating PowerMeterService for %s', accessory.displayName);
-      service = accessory.addService(Service.PowerMeterService, accessory.displayName);
+    if (!outletService) {
+      this.log.debug('Creating Outlet service for %s', accessory.displayName);
+      outletService = accessory.addService(Service.Outlet, accessory.displayName);
+      
+      // 현재 전력 소비량을 밝기 특성으로 표시하기 위해 밝기 특성 추가
+      outletService.addCharacteristic(Characteristic.Brightness);
     }
     
-    // Configure characteristics
-    service.getCharacteristic(Characteristic.CurrentPowerConsumption)
-      .onGet(() => this.currentPowerConsumption);
+    // 현재 전력 소비량을 조명 센서로 표시 (보조 표시)
+    let powerService = accessory.getService('Current Power');
     
-    service.getCharacteristic(Characteristic.TotalEnergyConsumption)
+    if (!powerService) {
+      this.log.debug('Creating Light Sensor service for current power');
+      powerService = accessory.addService(Service.LightSensor, 'Current Power', 'current-power');
+    }
+    
+    // 총 에너지 소비량을 온도 센서로 표시 (보조 표시)
+    let totalEnergyService = accessory.getService('Total Energy');
+    
+    if (!totalEnergyService) {
+      this.log.debug('Creating Temperature Sensor service for total energy');
+      totalEnergyService = accessory.addService(Service.TemperatureSensor, 'Total Energy', 'total-energy');
+    }
+    
+    // On 특성 설정
+    outletService.getCharacteristic(Characteristic.On)
+      .onGet(() => this.currentPowerConsumption > 0);
+    
+    // Brightness 특성 설정
+    outletService.getCharacteristic(Characteristic.Brightness)
+      .onGet(() => {
+        let brightness = Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100));
+        return brightness;
+      });
+    
+    // LightSensor(현재 전력) 특성 설정
+    powerService.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+      .onGet(() => Math.max(0.0001, this.currentPowerConsumption / 1000));
+    
+    // TemperatureSensor(총 에너지) 특성 설정
+    totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)
       .onGet(() => this.totalEnergyConsumption);
-    
-    service.getCharacteristic(Characteristic.Voltage)
-      .onGet(() => this.voltage);
-    
-    service.getCharacteristic(Characteristic.ElectricCurrent)
-      .onGet(() => this.current);
-    
-    service.getCharacteristic(Characteristic.PowerFactor)
-      .onGet(() => this.powerFactor);
     
     // Add to the array of accessories
     this.accessories.push(accessory);
