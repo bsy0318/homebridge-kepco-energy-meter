@@ -1,6 +1,6 @@
 # HomeBridge Tuya KEPCO Energy Meter Plugin
 
-이 플러그인은 한국전력공사(KEPCO) 파워플래너 API에서 전력 사용량 데이터를 가져와 Tuya 기기로 HomeBridge에 통합합니다. Apple HomeKit의 에너지 미터로 사용할 수 있습니다.
+이 플러그인은 한국전력공사(KEPCO) 파워플래너 API에서 전력 사용량 데이터를 가져와 Apple HomeKit의 에너지 미터로 사용할 수 있습니다.
 
 ## 특징
 
