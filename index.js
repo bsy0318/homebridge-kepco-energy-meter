@@ -322,8 +322,18 @@ class KEPCOPlatform {
     }
     
     // Eve Energy 서비스
-    const eveEnergyService = accessory.getService('KEPCO Energy Monitor') ||
-                            accessory.getServiceByUUID(ENERGY_UUID.SERVICE);
+    let eveEnergyService = accessory.getService('KEPCO Energy Monitor');
+    
+    // UUID를 사용하여 서비스 찾기
+    if (!eveEnergyService) {
+      const services = accessory.services || [];
+      for (const service of services) {
+        if (service.UUID === ENERGY_UUID.SERVICE) {
+          eveEnergyService = service;
+          break;
+        }
+      }
+    }
     if (!this.useEveEnergyService && eveEnergyService) {
       this.log.debug('Removing Eve Energy service as per configuration');
       try {
@@ -425,8 +435,18 @@ class KEPCOPlatform {
         
         // Eve Energy 에너지 모니터링 서비스 업데이트
         if (this.useEveEnergyService) {
-          const eveEnergyService = accessory.getService('KEPCO Energy Monitor') ||
-                                  accessory.getServiceByUUID(ENERGY_UUID.SERVICE);
+          let eveEnergyService = accessory.getService('KEPCO Energy Monitor');
+          
+          // UUID를 사용하여 서비스 찾기
+          if (!eveEnergyService) {
+            const services = accessory.services || [];
+            for (const service of services) {
+              if (service.UUID === ENERGY_UUID.SERVICE) {
+                eveEnergyService = service;
+                break;
+              }
+            }
+          }
           
           if (eveEnergyService) {
             try {
@@ -437,27 +457,31 @@ class KEPCOPlatform {
               );
               
               // 현재 전력 소비량 (와트)
-              const consumption = eveEnergyService.getCharacteristic(ENERGY_UUID.CONSUMPTION);
-              if (consumption) {
-                consumption.updateValue(this.currentPowerConsumption);
-              }
-              
-              // 총 에너지 소비량 (kWh)
-              const totalConsumption = eveEnergyService.getCharacteristic(ENERGY_UUID.TOTAL_CONSUMPTION);
-              if (totalConsumption) {
-                totalConsumption.updateValue(this.totalEnergyConsumption);
-              }
-              
-              // 전압 (볼트)
-              const voltage = eveEnergyService.getCharacteristic(ENERGY_UUID.VOLTAGE);
-              if (voltage) {
-                voltage.updateValue(this.voltage);
-              }
-              
-              // 전류 (암페어)
-              const current = eveEnergyService.getCharacteristic(ENERGY_UUID.AMPERE);
-              if (current) {
-                current.updateValue(this.current);
+              try {
+                const consumption = eveEnergyService.getCharacteristic('Consumption');
+                if (consumption) {
+                  consumption.setValue(this.currentPowerConsumption);
+                }
+                
+                // 총 에너지 소비량 (kWh)
+                const totalConsumption = eveEnergyService.getCharacteristic('Total Consumption');
+                if (totalConsumption) {
+                  totalConsumption.setValue(this.totalEnergyConsumption);
+                }
+                
+                // 전압 (볼트)
+                const voltage = eveEnergyService.getCharacteristic('Voltage');
+                if (voltage) {
+                  voltage.setValue(this.voltage);
+                }
+                
+                // 전류 (암페어)
+                const current = eveEnergyService.getCharacteristic('Current');
+                if (current) {
+                  current.setValue(this.current);
+                }
+              } catch (charErr) {
+                this.log.warn(`Error updating Eve Energy characteristics: ${charErr.message}`);
               }
             } catch (e) {
               this.log.error(`Error updating Eve Energy service: ${e.message}`);
@@ -509,9 +533,19 @@ class KEPCOPlatform {
       totalEnergyService = accessory.addService(Service.TemperatureSensor, '예상 에너지 소비량', 'total-energy');
     }
     
-    // 에너지 모니터링 서비스 추가 (Eve Energy 앱에서 볼 수 있음)
-    let eveEnergyService = accessory.getService('KEPCO Energy Monitor') ||
-                          accessory.getServiceByUUID(ENERGY_UUID.SERVICE);
+    // 에너지 모니터링 서비스 추가
+    let eveEnergyService = accessory.getService('KEPCO Energy Monitor');
+    
+    // UUID를 사용하여 서비스 찾기
+    if (!eveEnergyService) {
+      const services = accessory.services || [];
+      for (const service of services) {
+        if (service.UUID === ENERGY_UUID.SERVICE) {
+          eveEnergyService = service;
+          break;
+        }
+      }
+    }
     
     if (this.useEveEnergyService && !eveEnergyService) {
       this.log.debug('Creating Eve Energy service for power monitoring');
@@ -587,7 +621,7 @@ const ENERGY_UUID = {
   CONSUMPTION: 'E863F10D-079E-48FF-8F27-9C2605A29F52',
   VOLTAGE: 'E863F10A-079E-48FF-8F27-9C2605A29F52',
   AMPERE: 'E863F126-079E-48FF-8F27-9C2605A29F52',
-  POWER: 'E863F10W-079E-48FF-8F27-9C2605A29F52',
+  POWER: 'E863F10D-079E-48FF-8F27-9C2605A29F52', // 수정: W로 오타 수정
   TOTAL_CONSUMPTION: 'E863F10C-079E-48FF-8F27-9C2605A29F52',
   RESET_TOTAL: 'E863F112-079E-48FF-8F27-9C2605A29F52',
   
@@ -609,28 +643,28 @@ module.exports = (api) => {
       this.addCharacteristic(Characteristic.On);
       
       // 현재 전력 특성
-      this.addCharacteristic(new Characteristic('Consumption', ENERGY_UUID.CONSUMPTION, {
+      this.addCharacteristic(new api.hap.Characteristic('Consumption', ENERGY_UUID.CONSUMPTION, {
         format: Characteristic.Formats.FLOAT,
         unit: 'W',
         perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
       }));
       
       // 총 에너지 소비량 특성
-      this.addCharacteristic(new Characteristic('Total Consumption', ENERGY_UUID.TOTAL_CONSUMPTION, {
+      this.addCharacteristic(new api.hap.Characteristic('Total Consumption', ENERGY_UUID.TOTAL_CONSUMPTION, {
         format: Characteristic.Formats.FLOAT,
         unit: 'kWh',
         perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
       }));
       
       // 전압 특성
-      this.addCharacteristic(new Characteristic('Voltage', ENERGY_UUID.VOLTAGE, {
+      this.addCharacteristic(new api.hap.Characteristic('Voltage', ENERGY_UUID.VOLTAGE, {
         format: Characteristic.Formats.FLOAT,
         unit: 'V',
         perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
       }));
       
       // 전류 특성
-      this.addCharacteristic(new Characteristic('Current', ENERGY_UUID.AMPERE, {
+      this.addCharacteristic(new api.hap.Characteristic('Current', ENERGY_UUID.AMPERE, {
         format: Characteristic.Formats.FLOAT,
         unit: 'A',
         perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
