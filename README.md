@@ -12,6 +12,7 @@
 
 - HomeBridge 설치 및 실행
 - 파워플래너 계정 [고객번호(또는 한전ON ID) 및 비밀번호]
+- Playwright 브라우저 자동화 지원
 
 ## 설치 방법
 
@@ -46,6 +47,10 @@
    ```bash
    sudo npm install
    sudo npm link
+   ```
+
+7. Playwright 브라우저를 설치합니다:
+   ```bash
    npx playwright install
    npx playwright install chrome
    ```
@@ -107,13 +112,51 @@ HomeBridge UI를 통해 구성하는 경우:
 일반적인 문제:
 - 잘못된 계정 정보: KEPCO 웹사이트에서 로그인이 정상적으로 되는지 확인하세요
 - 네트워크 오류: 인터넷 연결 상태를 확인하세요
-- RSA 암호화 오류: `node-rsa` 패키지가 정상적으로 설치되었는지 확인하세요
+- 브라우저 오류: Playwright가 정상적으로 설치되었는지 확인하세요
+
+### 브라우저 문제 해결
+
+브라우저 자동화 관련 문제가 발생하는 경우:
+
+1. Playwright 브라우저 재설치:
+   ```bash
+   cd /path/to/homebridge-kepco-energy-meter
+   npx playwright install --force
+   npx playwright install chrome --force
+   ```
+
+2. 시스템에 Chrome 설치:
+   ```bash
+   # Debian/Ubuntu
+   sudo apt update && sudo apt install -y chromium-browser
+   
+   # Raspberry Pi OS
+   sudo apt update && sudo apt install -y chromium-browser
+   ```
 
 ## 종속성
 
 - Node.js 종속성:
   - axios: HTTP 요청 처리
-  - node-rsa: RSA 암호화
+  - playwright: 브라우저 자동화 및 KEPCO 웹사이트 로그인 처리
+
+## 브라우저 자동화 정보
+
+이 플러그인은 Microsoft Playwright를 사용하여 KEPCO 파워플래너 웹사이트에 로그인하고 전력 사용량 데이터를 가져옵니다:
+
+- 자동화된 브라우저 세션을 통한 안전한 로그인 처리
+- 로그인 후 API 직접 호출 방식으로 데이터 획득
+- 헤드리스 모드로 시스템 리소스를 최소화
+- 자동 세션 관리 및 재접속 기능
+
+### 자동 설치
+
+Playwright와 필요한 브라우저 바이너리는 `npm install` 과정에서 자동으로 설치됩니다. 수동으로 설치가 필요한 경우:
+
+```bash
+npx playwright install
+npx playwright install chrome
+```
 
 ## 라이센스
 

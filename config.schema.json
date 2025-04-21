@@ -46,6 +46,35 @@
         "minimum": 1,
         "maximum": 60,
         "default": 10
+      },
+      "displayOutlet": {
+        "title": "Display as Power Outlet",
+        "type": "boolean",
+        "default": true,
+        "description": "Show as a power outlet in HomeKit"
+      },
+      "displayCurrentPower": {
+        "title": "Display Current Power Usage",
+        "type": "boolean",
+        "default": true,
+        "description": "Show current power usage as a sensor"
+      },
+      "displayTotalEnergy": {
+        "title": "Display Total Energy Usage",
+        "type": "boolean", 
+        "default": true,
+        "description": "Show total energy usage as a sensor"
+      },
+      "powerDisplayType": {
+        "title": "Power Display Sensor Type",
+        "type": "string",
+        "default": "lightSensor",
+        "oneOf": [
+          { "title": "Light Sensor", "enum": ["lightSensor"] },
+          { "title": "Temperature Sensor", "enum": ["temperatureSensor"] },
+          { "title": "Humidity Sensor", "enum": ["humiditySensor"] }
+        ],
+        "description": "Sensor type for displaying power (Light/Temperature/Humidity)"
       }
     }
   },
@@ -72,6 +101,18 @@
         "deviceId",
         "deviceName",
         "deviceType"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Display Settings",
+      "expandable": true,
+      "expanded": true,
+      "items": [
+        "displayOutlet",
+        "displayCurrentPower",
+        "displayTotalEnergy",
+        "powerDisplayType"
       ]
     },
     {

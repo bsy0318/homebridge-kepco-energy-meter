@@ -17,6 +17,12 @@ class KEPCOPlatform {
     this.userId = config.userId;
     this.userPwd = config.userPwd;
     this.pollingInterval = config.pollingInterval || 10; // minutes
+    
+    // Display settings
+    this.displayOutlet = config.displayOutlet !== undefined ? config.displayOutlet : true;
+    this.displayCurrentPower = config.displayCurrentPower !== undefined ? config.displayCurrentPower : true;
+    this.displayTotalEnergy = config.displayTotalEnergy !== undefined ? config.displayTotalEnergy : true;
+    this.powerDisplayType = config.powerDisplayType || 'lightSensor';
 
     // Default values
     this.currentPowerConsumption = 0;
@@ -115,8 +121,46 @@ class KEPCOPlatform {
       "pollingInterval": 10,
       "deviceId": "kepco-energy-meter",
       "deviceName": "KEPCO Energy Meter",
-      "deviceType": "energymeter"
+      "deviceType": "energymeter",
+      "displayOutlet": true,
+      "displayCurrentPower": true,
+      "displayTotalEnergy": true,
+      "powerDisplayType": "lightSensor"
     };
+  }
+  
+  // 센서 유형에 따라 현재 전력 특성 업데이트
+  updatePowerServiceCharacteristic(service) {
+    if (!service) return;
+    
+    switch (this.powerDisplayType) {
+      case 'lightSensor':
+        if (service.testCharacteristic(Characteristic.CurrentAmbientLightLevel)) {
+          service.updateCharacteristic(
+            Characteristic.CurrentAmbientLightLevel,
+            Math.max(0.0001, this.currentPowerConsumption / 1000) // lux 값 (최소 0.0001)
+          );
+        }
+        break;
+        
+      case 'temperatureSensor':
+        if (service.testCharacteristic(Characteristic.CurrentTemperature)) {
+          service.updateCharacteristic(
+            Characteristic.CurrentTemperature,
+            Math.min(100, this.currentPowerConsumption / 100) // 온도 값
+          );
+        }
+        break;
+        
+      case 'humiditySensor':
+        if (service.testCharacteristic(Characteristic.CurrentRelativeHumidity)) {
+          service.updateCharacteristic(
+            Characteristic.CurrentRelativeHumidity,
+            Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100)) // 습도 값 (0-100%)
+          );
+        }
+        break;
+    }
   }
 
   // Start polling for power data
@@ -195,6 +239,87 @@ class KEPCOPlatform {
     }
   }
   
+  // 현재 전력 소비량 표시 서비스 가져오기
+  getCurrentPowerService(accessory) {
+    // 선택된 센서 유형에 따라 다른 서비스 검색
+    switch (this.powerDisplayType) {
+      case 'lightSensor':
+        return accessory.getService('현재 에너지 소비량') || 
+               accessory.getServiceById(Service.LightSensor, 'current-power');
+      case 'temperatureSensor':
+        return accessory.getService('현재 에너지 소비량') || 
+               accessory.getServiceById(Service.TemperatureSensor, 'current-power');
+      case 'humiditySensor':
+        return accessory.getService('현재 에너지 소비량') || 
+               accessory.getServiceById(Service.HumiditySensor, 'current-power');
+      default:
+        return accessory.getService('현재 에너지 소비량') || 
+               accessory.getServiceById(Service.LightSensor, 'current-power');
+    }
+  }
+  
+  // 현재 전력 소비량 서비스 추가
+  addCurrentPowerService(accessory) {
+    switch (this.powerDisplayType) {
+      case 'lightSensor':
+        return accessory.addService(Service.LightSensor, '현재 에너지 소비량', 'current-power');
+      case 'temperatureSensor':
+        return accessory.addService(Service.TemperatureSensor, '현재 에너지 소비량', 'current-power');
+      case 'humiditySensor':
+        return accessory.addService(Service.HumiditySensor, '현재 에너지 소비량', 'current-power');
+      default:
+        return accessory.addService(Service.LightSensor, '현재 에너지 소비량', 'current-power');
+    }
+  }
+  
+  // 현재 전력 소비량 서비스 특성 설정
+  configurePowerService(service) {
+    if (!service) return;
+    
+    switch (this.powerDisplayType) {
+      case 'lightSensor':
+        service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
+          .onGet(() => Math.max(0.0001, this.currentPowerConsumption / 1000)); // lux 값은 0.0001 이상이어야 함
+        break;
+      case 'temperatureSensor':
+        service.getCharacteristic(Characteristic.CurrentTemperature)
+          .onGet(() => Math.min(100, this.currentPowerConsumption / 100)); // 온도 범위 조정
+        break;
+      case 'humiditySensor':
+        service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
+          .onGet(() => Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100))); // 습도는 0-100%
+        break;
+    }
+  }
+  
+  // 사용하지 않는 서비스 제거
+  removeUnusedServices(accessory) {
+    // 콘센트 서비스
+    const outletService = accessory.getService(Service.Outlet);
+    if (!this.displayOutlet && outletService) {
+      this.log.debug('Removing Outlet service as per configuration');
+      accessory.removeService(outletService);
+    }
+    
+    // 현재 전력 센서 서비스 (모든 가능한 유형 확인)
+    if (!this.displayCurrentPower) {
+      const lightService = accessory.getServiceById(Service.LightSensor, 'current-power');
+      const tempService = accessory.getServiceById(Service.TemperatureSensor, 'current-power');
+      const humidityService = accessory.getServiceById(Service.HumiditySensor, 'current-power');
+      
+      if (lightService) accessory.removeService(lightService);
+      if (tempService) accessory.removeService(tempService);
+      if (humidityService) accessory.removeService(humidityService);
+    }
+    
+    // 총 에너지 센서 서비스
+    const totalEnergyService = accessory.getServiceById(Service.TemperatureSensor, 'total-energy');
+    if (!this.displayTotalEnergy && totalEnergyService) {
+      this.log.debug('Removing Total Energy service as per configuration');
+      accessory.removeService(totalEnergyService);
+    }
+  }
+
   // Process the power data from KEPCO
   processPowerData(data) {
     if (!data) {
@@ -244,43 +369,44 @@ class KEPCOPlatform {
       
       // Update all registered accessories
       this.accessories.forEach(accessory => {
-        // 전력 서비스
-        const service = accessory.getService(Service.Outlet);
-        if (service) {
-          // 현재 전력 사용량을 On/Off 상태로 표시
-          service.updateCharacteristic(
-            Characteristic.On, 
-            this.currentPowerConsumption > 0
-          );
-          
-          // 현재 전력 소비량을 밝기 값으로 매핑 (0-100%)
-          let brightness = Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100));
-          service.updateCharacteristic(
-            Characteristic.Brightness, 
-            brightness
-          );
+        // 전력 서비스 (콘센트)
+        if (this.displayOutlet) {
+          const service = accessory.getService(Service.Outlet);
+          if (service) {
+            // 현재 전력 사용량을 On/Off 상태로 표시
+            service.updateCharacteristic(
+              Characteristic.On, 
+              this.currentPowerConsumption > 0
+            );
+            
+            // 현재 전력 소비량을 밝기 값으로 매핑 (0-100%)
+            let brightness = Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100));
+            service.updateCharacteristic(
+              Characteristic.Brightness, 
+              brightness
+            );
+          }
         }
         
         // 센서 서비스 - 현재 전력 소비량을 표시
-        const powerService = accessory.getService('현재 에너지 소비량') ||
-                             accessory.getServiceById(Service.LightSensor, 'current-power');
-        if (powerService) {
-          // LightSensor의 CurrentAmbientLightLevel을 사용하여 현재 전력 표시
-          powerService.updateCharacteristic(
-            Characteristic.CurrentAmbientLightLevel, 
-            Math.max(0.0001, this.currentPowerConsumption / 1000) // lux 값은 0.0001 이상이어야 함
-          );
+        if (this.displayCurrentPower) {
+          const powerService = this.getCurrentPowerService(accessory);
+          if (powerService) {
+            this.updatePowerServiceCharacteristic(powerService);
+          }
         }
         
         // 센서 서비스 - 총 에너지 소비량을 표시
-        const totalEnergyService = accessory.getService('예상 에너지 소비량') ||
-                                  accessory.getServiceById(Service.TemperatureSensor, 'total-energy');
-        if (totalEnergyService && totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)) {
-          // 일부 센서는 온도 특성을 사용하여 데이터를 표시할 수 있음
-          totalEnergyService.updateCharacteristic(
-            Characteristic.CurrentTemperature, 
-            this.totalEnergyConsumption
-          );
+        if (this.displayTotalEnergy) {
+          const totalEnergyService = accessory.getService('예상 에너지 소비량') ||
+                                    accessory.getServiceById(Service.TemperatureSensor, 'total-energy');
+          if (totalEnergyService && totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)) {
+            // 일부 센서는 온도 특성을 사용하여 데이터를 표시할 수 있음
+            totalEnergyService.updateCharacteristic(
+              Characteristic.CurrentTemperature, 
+              this.totalEnergyConsumption
+            );
+          }
         }
       });
     } catch (e) {
@@ -296,10 +422,13 @@ class KEPCOPlatform {
       this.log.info('Identify requested for %s', accessory.displayName);
     });
     
+    // 사용자 설정에 따라 서비스 추가/제거
+    this.removeUnusedServices(accessory);
+    
     // 콘센트 서비스 추가 (On/Off + Brightness로 전력 사용량 표시)
     let outletService = accessory.getService(Service.Outlet);
     
-    if (!outletService) {
+    if (this.displayOutlet && !outletService) {
       this.log.debug('Creating Outlet service for %s', accessory.displayName);
       outletService = accessory.addService(Service.Outlet, accessory.displayName);
       
@@ -307,42 +436,46 @@ class KEPCOPlatform {
       outletService.addCharacteristic(Characteristic.Brightness);
     }
     
-    // 현재 전력 소비량을 조명 센서로 표시 (보조 표시)
-    let powerService = accessory.getService('현재 에너지 소비량') || 
-                       accessory.getServiceById(Service.LightSensor, 'current-power');
+    // 현재 전력 소비량을 센서로 표시 (보조 표시)
+    let powerService = this.getCurrentPowerService(accessory);
     
-    if (!powerService) {
-      this.log.debug('Creating Light Sensor service for current power');
-      powerService = accessory.addService(Service.LightSensor, '현재 에너지 소비량', 'current-power');
+    if (this.displayCurrentPower && !powerService) {
+      this.log.debug(`Creating ${this.powerDisplayType} service for current power`);
+      powerService = this.addCurrentPowerService(accessory);
     }
     
     // 총 에너지 소비량을 온도 센서로 표시 (보조 표시)
     let totalEnergyService = accessory.getService('예상 에너지 소비량') || 
                              accessory.getServiceById(Service.TemperatureSensor, 'total-energy');
     
-    if (!totalEnergyService) {
+    if (this.displayTotalEnergy && !totalEnergyService) {
       this.log.debug('Creating Temperature Sensor service for total energy');
       totalEnergyService = accessory.addService(Service.TemperatureSensor, '예상 에너지 소비량', 'total-energy');
     }
     
     // On 특성 설정
-    outletService.getCharacteristic(Characteristic.On)
-      .onGet(() => this.currentPowerConsumption > 0);
+    if (outletService) {
+      outletService.getCharacteristic(Characteristic.On)
+        .onGet(() => this.currentPowerConsumption > 0);
+      
+      // Brightness 특성 설정
+      outletService.getCharacteristic(Characteristic.Brightness)
+        .onGet(() => {
+          let brightness = Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100));
+          return brightness;
+        });
+    }
     
-    // Brightness 특성 설정
-    outletService.getCharacteristic(Characteristic.Brightness)
-      .onGet(() => {
-        let brightness = Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100));
-        return brightness;
-      });
-    
-    // LightSensor(현재 전력) 특성 설정
-    powerService.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
-      .onGet(() => Math.max(0.0001, this.currentPowerConsumption / 1000));
+    // 현재 전력 특성 설정
+    if (powerService) {
+      this.configurePowerService(powerService);
+    }
     
     // TemperatureSensor(총 에너지) 특성 설정
-    totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)
-      .onGet(() => this.totalEnergyConsumption);
+    if (totalEnergyService) {
+      totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)
+        .onGet(() => this.totalEnergyConsumption);
+    }
     
     // Add to the array of accessories
     this.accessories.push(accessory);
