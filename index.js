@@ -160,8 +160,72 @@ class KEPCOPlatform {
     }
   }
 
-  // Main function to scrape KEPCO data - Reimplementation of powerplan.py in JavaScript
-  async scrapingKEPCO(userId, userPwd) {
+  // scrapingKEPCO 함수
+  async scrapingKEPCO(userId, userPwd, scrapDate = new Date().toISOString().split('T')[0], simple = true) {
+    const { BigInteger } = require('jsbn');
+    const { SecureRandom } = require('jsbn');
+    
+    const encryptJSBN = (text, modulus, exponent) => {
+      function pkcs1pad2(s, n) {
+        if(n < s.length + 11) {
+          this.log.error("Message too long for RSA");
+          return null;
+        }
+        
+        const ba = new Array();
+        let i = s.length - 1;
+        
+        while(i >= 0 && n > 0) {
+          const c = s.charCodeAt(i--);
+          if(c < 128) { // encode using utf-8
+            ba[--n] = c;
+          }
+          else if((c > 127) && (c < 2048)) {
+            ba[--n] = (c & 63) | 128;
+            ba[--n] = (c >> 6) | 192;
+          }
+          else {
+            ba[--n] = (c & 63) | 128;
+            ba[--n] = ((c >> 6) & 63) | 128;
+            ba[--n] = (c >> 12) | 224;
+          }
+        }
+        
+        ba[--n] = 0;
+        const rng = new SecureRandom();
+        const x = new Array(1);
+        
+        while(n > 2) { // random non-zero pad
+          x[0] = 0;
+          while(x[0] == 0) rng.nextBytes(x);
+          ba[--n] = x[0];
+        }
+        
+        ba[--n] = 2;
+        ba[--n] = 0;
+        
+        return new BigInteger(ba);
+      }
+      
+      // RSA 키 생성 및 암호화
+      const rsa = {
+        n: new BigInteger(modulus, 16),
+        e: parseInt(exponent, 16),
+        encrypt: function(text) {
+          const m = pkcs1pad2(text, (this.n.bitLength() + 7) >> 3);
+          if(m == null) return null;
+          
+          const c = m.modPow(new BigInteger(this.e.toString(), 10), this.n);
+          if(c == null) return null;
+          
+          let h = c.toString(16);
+          if((h.length & 1) == 0) return h; else return "0" + h;
+        }
+      };
+      
+      return rsa.encrypt(text);
+    };
+
     const axiosInstance = axios.create({
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36',
@@ -181,15 +245,15 @@ class KEPCOPlatform {
       }
 
       // Extract cookie values
-      const cookieRsa = this.extractCookieValue(cookies, 'cookieRsa');
       const cookieSsId = this.extractCookieValue(cookies, 'cookieSsId');
+      const cookieRsa = this.extractCookieValue(cookies, 'cookieRsa');
       const jsessionId = this.extractCookieValue(cookies, 'JSESSIONID');
       
       if (!cookieRsa || !cookieSsId || !jsessionId) {
         throw new Error('Failed to extract required cookies');
       }
 
-      this.log.debug(`Got cookies: RSA=${cookieRsa.substring(0, 10)}..., SSID=${cookieSsId.substring(0, 10)}..., JSESSION=${jsessionId.substring(0, 10)}...`);
+      this.log.debug(`Got cookies: SsID=${cookieSsId.substring(0, 10)}..., RSA=${cookieRsa.substring(0, 10)}..., JSESSION=${jsessionId.substring(0, 10)}...`);
       
       // Create cookie string
       const cookieStr = `cookieSsId=${cookieSsId}; cookieRsa=${cookieRsa}; JSESSIONID=${jsessionId}`;
@@ -203,13 +267,15 @@ class KEPCOPlatform {
       const rsaExponent = rsaExponentMatch[1];
       this.log.debug(`Got RSA exponent: ${rsaExponent}`);
 
-      // Step 2: Encrypt credentials with RSA
-      const encryptedId = this.encryptRSA(userId, cookieRsa, rsaExponent);
-      const encryptedPwd = this.encryptRSA(userPwd, cookieRsa, rsaExponent);
+      // Step 2: Encrypt credentials
+      const encryptedId = encryptJSBN(userId, cookieRsa, rsaExponent);
+      const encryptedPwd = encryptJSBN(userPwd, cookieRsa, rsaExponent);
       
       if (!encryptedId || !encryptedPwd) {
         throw new Error('Failed to encrypt credentials');
       }
+
+      this.log.debug(`Credentials encrypted. ID: ${encryptedId.substring(0, 10)}..., PWD: ${encryptedPwd.substring(0, 10)}...`);
 
       // Format encrypted credentials
       const idWithSession = `${jsessionId}_${encryptedId}`;
@@ -229,13 +295,15 @@ class KEPCOPlatform {
         {
           headers: {
             'Cookie': cookieStr,
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://pp.kepco.co.kr/',
+            'Origin': 'https://pp.kepco.co.kr'
           }
         }
       );
       
       // Check login response
-      if (loginResponse.status !== 200) {
+      if (loginResponse.status !== 200 && loginResponse.status !== 302) {
         throw new Error(`Login failed with status ${loginResponse.status}`);
       }
       
@@ -244,8 +312,9 @@ class KEPCOPlatform {
       let updatedCookieStr = cookieStr;
       
       if (loginCookies && loginCookies.length > 0) {
-        const updatedCookieRsa = this.extractCookieValue(loginCookies, 'cookieRsa') || cookieRsa;
+        this.log.debug('Received new cookies after login');
         const updatedCookieSsId = this.extractCookieValue(loginCookies, 'cookieSsId') || cookieSsId;
+        const updatedCookieRsa = this.extractCookieValue(loginCookies, 'cookieRsa') || cookieRsa;
         const updatedJsessionId = this.extractCookieValue(loginCookies, 'JSESSIONID') || jsessionId;
         
         updatedCookieStr = `cookieSsId=${updatedCookieSsId}; cookieRsa=${updatedCookieRsa}; JSESSIONID=${updatedJsessionId}`;
@@ -253,15 +322,30 @@ class KEPCOPlatform {
 
       // Step 4: Get power usage data
       this.log.debug('Fetching power usage data...');
+      let dataPayload, endpoint;
+      
+      if (!simple) {
+        endpoint = 'https://pp.kepco.co.kr/rs/rs0201_chart.do';
+        dataPayload = {
+          'SELECT_DT': scrapDate,
+          'TIME_TYPE': "1",
+          'selectType': "all"
+        };
+      } else {
+        endpoint = 'https://pp.kepco.co.kr/rm/getRM0201.do';
+        dataPayload = { "menuType": "time", "TOU": false };
+      }
+      
       const dataResponse = await axiosInstance.post(
-        'https://pp.kepco.co.kr/rm/getRM0201.do',
-        JSON.stringify({ menuType: "time", TOU: false }),
+        endpoint,
+        JSON.stringify(dataPayload),
         {
           headers: {
             'Cookie': updatedCookieStr,
             'Content-Type': 'application/json',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': 'https://pp.kepco.co.kr/main.do'
           }
         }
       );
@@ -269,10 +353,10 @@ class KEPCOPlatform {
       // Process the response data
       const responseData = dataResponse.data;
       
-      // Word replacements (similar to the Python code)
-      const wordReplacements = {
+      // Word replacements
+      const wordReplacements = simple ? {
         "BASE_BILL_UCOST": "기본요금단가",
-        "BASE_BILL": "기본요금",
+        "BASE_BILL": "기본요금", 
         "JOJ_KW": "요금적용전력",
         "CNTR_KND_NM": "전력요금제",
         "END_DT": "종료일",
@@ -299,10 +383,44 @@ class KEPCOPlatform {
         "REAL_PREDICT_TOT_BILL": "예상_전력량요금",
         "START_DT": "검침시작일",
         "SELECT_DT": "업데이트"
+      } : {
+        "F_AP_QT": "사용량(kWh)", 
+        "F_LARAP_QT": "무효전력(지상)",
+        "F_LERAP_QT": "무효전력(진상)",
+        "SUM_QT": "무효전력 합계",
+        "F_LARAP_PF": "역률(지상)",
+        "F_LERAP_PF": "역률(진상)", 
+        "MR_HHMI2": "시간(HH:mm)", 
+        "MR_HHMI": "시간(한글)",
+        "CO2": "탄소배출량", 
+        "LDAY": "전일",
+        "LMONTH": "전월", 
+        "AVG": "평균"
       };
       
-      // Return the data with Korean names
-      return responseData;
+      // Processing response
+      let textDataList = JSON.stringify(responseData);
+      
+      if (!simple) {
+        for (const [word, replacement] of Object.entries(wordReplacements)) {
+          textDataList = textDataList.replace(new RegExp(word, 'g'), replacement);
+        }
+        
+        const mainDataList = [
+          {
+            'DateTime': scrapDate,
+            'Data': JSON.parse(textDataList)
+          }
+        ];
+        
+        return mainDataList;
+      } else {
+        for (const [word, replacement] of Object.entries(wordReplacements)) {
+          textDataList = textDataList.replace(new RegExp(`"${word}"`, 'g'), `"${replacement}"`);
+        }
+        
+        return JSON.parse(textDataList);
+      }
       
     } catch (error) {
       this.log.error(`Error scraping KEPCO data: ${error.message}`);
@@ -330,14 +448,23 @@ class KEPCOPlatform {
   encryptRSA(text, modulus, exponent) {
     try {
       const key = new NodeRSA();
-      // Set public key components
+      
+      // 공개키 컴포넌트 설정
       key.importKey({
         n: Buffer.from(modulus, 'hex'),
         e: parseInt(exponent, 16)
       }, 'components-public');
       
-      // Encrypt with PKCS1 padding
-      return key.encrypt(text, 'hex');
+      // PKCS1 패딩을 사용하도록 설정
+      key.setOptions({
+        encryptionScheme: 'pkcs1'
+      });
+      
+      // 인코딩 옵션 추가
+      const encrypted = key.encrypt(Buffer.from(text), 'hex');
+      
+      this.log.debug(`Encrypted text (first 10 chars): ${encrypted.substring(0, 10)}...`);
+      return encrypted;
     } catch (error) {
       this.log.error(`RSA encryption error: ${error.message}`);
       return null;
