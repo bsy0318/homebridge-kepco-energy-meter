@@ -44,7 +44,8 @@
 
 6. 의존성을 설치합니다:
    ```bash
-   npm install
+   sudo npm install
+   sudo npm link
    ```
 
 ## 구성
