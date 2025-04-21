@@ -257,30 +257,28 @@ class KEPCOLogin {
       };
       
       // 응답 데이터에서 필요한 정보 추출
-      if (apiResponse && apiResponse.data) {
-        const data = apiResponse.data;
-        
-        // 실시간 사용량 추출
-        if (data.curMpEscs !== undefined && data.curMpEscs !== null) {
-          powerData['실시간사용량(kWh)'] = parseFloat(data.curMpEscs) || 0;
+      if (apiResponse) {
+        // 실시간 사용량 추출 (F_AP_QT)
+        if (apiResponse.F_AP_QT !== undefined && apiResponse.F_AP_QT !== null) {
+          powerData['실시간사용량(kWh)'] = parseFloat(apiResponse.F_AP_QT.replace(/,/g, '')) || 0;
         }
         
-        // 예상 전력 사용량 추출
-        if (data.mpeEscs !== undefined && data.mpeEscs !== null) {
-          powerData['예상_전력사용량'] = parseFloat(data.mpeEscs) || 0;
+        // 예상 전력 사용량 추출 (PREDICT_TOT)
+        if (apiResponse.PREDICT_TOT !== undefined && apiResponse.PREDICT_TOT !== null) {
+          powerData['예상_전력사용량'] = parseFloat(apiResponse.PREDICT_TOT.replace(/,/g, '')) || 0;
         }
         
-        // 예상 청구 금액 추출
-        if (data.totEsbills !== undefined && data.totEsbills !== null) {
-          powerData['당월_예상_청구금액'] = parseFloat(data.totEsbills) || 0;
+        // 예상 청구 금액 추출 (PREDICT_TOTAL_CHARGE)
+        if (apiResponse.PREDICT_TOTAL_CHARGE !== undefined && apiResponse.PREDICT_TOTAL_CHARGE !== null) {
+          powerData['당월_예상_청구금액'] = parseFloat(apiResponse.PREDICT_TOTAL_CHARGE.replace(/,/g, '')) || 0;
         }
         
         // 전체 API 응답 데이터 병합 (상세 정보가 필요한 경우)
         if (!simple) {
-          Object.assign(powerData, data);
+          Object.assign(powerData, apiResponse);
         }
       } else {
-        this.log.warn('API 응답에서 data 필드를 찾을 수 없습니다.');
+        this.log.warn('API 응답 데이터가 없습니다.');
       }
       
       return powerData;
