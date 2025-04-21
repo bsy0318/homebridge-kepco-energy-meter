@@ -1,0 +1,102 @@
+{
+  "pluginAlias": "KEPCOEnergyMeter",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "KEPCO Energy Meter",
+        "required": true
+      },
+      "userId": {
+        "title": "KEPCO User ID",
+        "type": "string",
+        "required": true
+      },
+      "userPwd": {
+        "title": "KEPCO Password",
+        "type": "string",
+        "required": true
+      },
+      "deviceId": {
+        "title": "Device ID",
+        "type": "string",
+        "default": "kepco-energy-meter",
+        "required": true
+      },
+      "deviceName": {
+        "title": "Device Name",
+        "type": "string",
+        "default": "KEPCO Energy Meter",
+        "required": true
+      },
+      "deviceType": {
+        "title": "Device Type",
+        "type": "string",
+        "default": "energymeter",
+        "required": true,
+        "readonly": true
+      },
+      "pollingInterval": {
+        "title": "Polling Interval (minutes)",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 60,
+        "default": 10
+      },
+      "pythonPath": {
+        "title": "Python Path",
+        "type": "string",
+        "default": "python3",
+        "required": false
+      },
+      "scriptPath": {
+        "title": "Path to Python Script",
+        "type": "string",
+        "required": false,
+        "description": "Leave blank to use the default script"
+      }
+    }
+  },
+  "layout": [
+    {
+      "type": "flex",
+      "flex-flow": "row wrap",
+      "items": [
+        "name"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "KEPCO Account",
+      "items": [
+        "userId",
+        "userPwd"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Device Settings",
+      "items": [
+        "deviceId",
+        "deviceName",
+        "deviceType"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Advanced Settings",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        "pollingInterval",
+        "pythonPath",
+        "scriptPath"
+      ]
+    }
+  ],
+  "display": "compact"
+}

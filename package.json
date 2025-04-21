@@ -1,0 +1,34 @@
+{
+  "name": "homebridge-kepco-energy-meter",
+  "version": "1.0.0",
+  "description": "HomeBridge plugin for KEPCO Energy Meter",
+  "main": "index.js",
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge-platform",
+    "kepco",
+    "energy",
+    "meter",
+    "power",
+    "electricity"
+  ],
+  "engines": {
+    "node": ">=14.0.0",
+    "homebridge": ">=1.3.0"
+  },
+  "author": "Seoyeon Bae",
+  "license": "MIT",
+  "dependencies": {
+    "child_process": "^1.0.2",
+    "path": "^0.12.7",
+    "fs": "0.0.1-security"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bsy0318/homebridge-kepco-energy-meter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bsy0318/homebridge-kepco-energy-meter/issues"
+  },
+  "homepage": "https://github.com/bsy0318/homebridge-kepco-energy-meter#readme"
+}

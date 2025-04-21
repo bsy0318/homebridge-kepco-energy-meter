@@ -1,0 +1,52 @@
+{
+    "customUiSchema": {
+      "ui:order": [
+        "name",
+        "*",
+        "pollingInterval",
+        "pythonPath",
+        "scriptPath"
+      ],
+      "name": {
+        "ui:title": "Device Name",
+        "ui:description": "Apple HomeKit에서 표시될 장치 이름입니다. (기본값: KEPCO Energy Meter)"
+      },
+      "userId": {
+        "ui:title": "KEPCO User ID",
+        "ui:description": "요금청구서에 기재된 고객번호를 입력하세요."
+      },
+      "userPwd": {
+        "ui:title": "KEPCO Password",
+        "ui:widget": "password",
+        "ui:description": "https://pp.kepco.co.kr 에서 회원가입 후 비밀번호를 입력하세요."
+      },
+      "deviceId": {
+        "ui:title": "Device ID",
+        "ui:description": "장치의 고유 식별자입니다. (기본값: kepco-energy-meter)"
+      },
+      "deviceName": {
+        "ui:title": "Device Display Name",
+        "ui:description": "Apple HomeKit에서 표시될 장치 이름입니다. (기본값: KEPCO Energy Meter)"
+      },
+      "deviceType": {
+        "ui:title": "Device Type",
+        "ui:description": "Type of device (Energy Meter)",
+        "ui:widget": "hidden"
+      },
+      "pollingInterval": {
+        "ui:title": "Update Interval",
+        "ui:description": "서버에서 데이터를 가져오는 주기 (분 단위)",
+        "ui:widget": "range"
+      },
+      "pythonPath": {
+        "ui:title": "Python Path",
+        "ui:description": "Python 실행 파일의 경로 (기본값: python3)",
+        "ui:widget": "hidden"
+      },
+      "scriptPath": {
+        "ui:title": "Script Path",
+        "ui:description": "Python 스크립트의 경로 (기본값: 잘 모를 경우 비워두세요)",
+        "ui:widget": "hidden"
+      }
+    }
+  }
