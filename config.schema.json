@@ -75,6 +75,12 @@
           { "title": "Humidity Sensor", "enum": ["humiditySensor"] }
         ],
         "description": "Sensor type for displaying power (Light/Temperature/Humidity)"
+      },
+      "useEveEnergyService": {
+        "title": "Enable Eve Energy Monitoring",
+        "type": "boolean",
+        "default": true,
+        "description": "Use Eve Energy compatible power monitoring (visible in Eve app)"
       }
     }
   },
@@ -112,7 +118,8 @@
         "displayOutlet",
         "displayCurrentPower",
         "displayTotalEnergy",
-        "powerDisplayType"
+        "powerDisplayType",
+        "useEveEnergyService"
       ]
     },
     {

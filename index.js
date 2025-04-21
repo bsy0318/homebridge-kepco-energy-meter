@@ -3,7 +3,7 @@ const https = require('https');
 const axios = require('axios');
 const KEPCOLogin = require('./playwright-kepco-login');
 
-let Service, Characteristic;
+let Service, Characteristic, UUIDGen;
 
 class KEPCOPlatform {
   constructor(log, config, api) {
@@ -23,6 +23,7 @@ class KEPCOPlatform {
     this.displayCurrentPower = config.displayCurrentPower !== undefined ? config.displayCurrentPower : true;
     this.displayTotalEnergy = config.displayTotalEnergy !== undefined ? config.displayTotalEnergy : true;
     this.powerDisplayType = config.powerDisplayType || 'lightSensor';
+    this.useEveEnergyService = config.useEveEnergyService !== undefined ? config.useEveEnergyService : true;
 
     // Default values
     this.currentPowerConsumption = 0;
@@ -125,7 +126,8 @@ class KEPCOPlatform {
       "displayOutlet": true,
       "displayCurrentPower": true,
       "displayTotalEnergy": true,
-      "powerDisplayType": "lightSensor"
+      "powerDisplayType": "lightSensor",
+      "useEveEnergyService": true
     };
   }
   
@@ -318,6 +320,18 @@ class KEPCOPlatform {
       this.log.debug('Removing Total Energy service as per configuration');
       accessory.removeService(totalEnergyService);
     }
+    
+    // Eve Energy 서비스
+    const eveEnergyService = accessory.getService('KEPCO Energy Monitor') ||
+                            accessory.getServiceByUUID(ENERGY_UUID.SERVICE);
+    if (!this.useEveEnergyService && eveEnergyService) {
+      this.log.debug('Removing Eve Energy service as per configuration');
+      try {
+        accessory.removeService(eveEnergyService);
+      } catch (e) {
+        this.log.error(`Failed to remove Eve Energy service: ${e.message}`);
+      }
+    }
   }
 
   // Process the power data from KEPCO
@@ -408,6 +422,48 @@ class KEPCOPlatform {
             );
           }
         }
+        
+        // Eve Energy 에너지 모니터링 서비스 업데이트
+        if (this.useEveEnergyService) {
+          const eveEnergyService = accessory.getService('KEPCO Energy Monitor') ||
+                                  accessory.getServiceByUUID(ENERGY_UUID.SERVICE);
+          
+          if (eveEnergyService) {
+            try {
+              // On/Off 상태
+              eveEnergyService.updateCharacteristic(
+                Characteristic.On,
+                this.currentPowerConsumption > 0
+              );
+              
+              // 현재 전력 소비량 (와트)
+              const consumption = eveEnergyService.getCharacteristic(ENERGY_UUID.CONSUMPTION);
+              if (consumption) {
+                consumption.updateValue(this.currentPowerConsumption);
+              }
+              
+              // 총 에너지 소비량 (kWh)
+              const totalConsumption = eveEnergyService.getCharacteristic(ENERGY_UUID.TOTAL_CONSUMPTION);
+              if (totalConsumption) {
+                totalConsumption.updateValue(this.totalEnergyConsumption);
+              }
+              
+              // 전압 (볼트)
+              const voltage = eveEnergyService.getCharacteristic(ENERGY_UUID.VOLTAGE);
+              if (voltage) {
+                voltage.updateValue(this.voltage);
+              }
+              
+              // 전류 (암페어)
+              const current = eveEnergyService.getCharacteristic(ENERGY_UUID.AMPERE);
+              if (current) {
+                current.updateValue(this.current);
+              }
+            } catch (e) {
+              this.log.error(`Error updating Eve Energy service: ${e.message}`);
+            }
+          }
+        }
       });
     } catch (e) {
       this.log.error(`Error processing power data: ${e.message}`);
@@ -451,6 +507,20 @@ class KEPCOPlatform {
     if (this.displayTotalEnergy && !totalEnergyService) {
       this.log.debug('Creating Temperature Sensor service for total energy');
       totalEnergyService = accessory.addService(Service.TemperatureSensor, '예상 에너지 소비량', 'total-energy');
+    }
+    
+    // 에너지 모니터링 서비스 추가 (Eve Energy 앱에서 볼 수 있음)
+    let eveEnergyService = accessory.getService('KEPCO Energy Monitor') ||
+                          accessory.getServiceByUUID(ENERGY_UUID.SERVICE);
+    
+    if (this.useEveEnergyService && !eveEnergyService) {
+      this.log.debug('Creating Eve Energy service for power monitoring');
+      try {
+        eveEnergyService = new Service.EveEnergyService('KEPCO Energy Monitor', 'kepco-energy');
+        accessory.addService(eveEnergyService);
+      } catch (e) {
+        this.log.error(`Failed to create Eve Energy service: ${e.message}`);
+      }
     }
     
     // On 특성 설정
@@ -510,9 +580,67 @@ class KEPCOPlatform {
   }
 }
 
+// Eve Energy 특성 정의 - 에너지 모니터링용 커스텀 서비스
+const ENERGY_UUID = {
+  // Eve Energy 서비스 및 특성 UUID
+  SERVICE: 'E863F007-079E-48FF-8F27-9C2605A29F52',
+  CONSUMPTION: 'E863F10D-079E-48FF-8F27-9C2605A29F52',
+  VOLTAGE: 'E863F10A-079E-48FF-8F27-9C2605A29F52',
+  AMPERE: 'E863F126-079E-48FF-8F27-9C2605A29F52',
+  POWER: 'E863F10W-079E-48FF-8F27-9C2605A29F52',
+  TOTAL_CONSUMPTION: 'E863F10C-079E-48FF-8F27-9C2605A29F52',
+  RESET_TOTAL: 'E863F112-079E-48FF-8F27-9C2605A29F52',
+  
+  // Eve History 특성
+  HISTORY: 'E863F116-079E-48FF-8F27-9C2605A29F52'
+};
+
 module.exports = (api) => {
   Service = api.hap.Service;
   Characteristic = api.hap.Characteristic;
+  UUIDGen = api.hap.uuid;
   
+  // Eve Energy 서비스 정의 - 전력 측정
+  class EveEnergyService extends Service {
+    constructor(displayName, subtype) {
+      super(displayName, ENERGY_UUID.SERVICE, subtype);
+      
+      // 전력 측정 특성 추가
+      this.addCharacteristic(Characteristic.On);
+      
+      // 현재 전력 특성
+      this.addCharacteristic(new Characteristic('Consumption', ENERGY_UUID.CONSUMPTION, {
+        format: Characteristic.Formats.FLOAT,
+        unit: 'W',
+        perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
+      }));
+      
+      // 총 에너지 소비량 특성
+      this.addCharacteristic(new Characteristic('Total Consumption', ENERGY_UUID.TOTAL_CONSUMPTION, {
+        format: Characteristic.Formats.FLOAT,
+        unit: 'kWh',
+        perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
+      }));
+      
+      // 전압 특성
+      this.addCharacteristic(new Characteristic('Voltage', ENERGY_UUID.VOLTAGE, {
+        format: Characteristic.Formats.FLOAT,
+        unit: 'V',
+        perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
+      }));
+      
+      // 전류 특성
+      this.addCharacteristic(new Characteristic('Current', ENERGY_UUID.AMPERE, {
+        format: Characteristic.Formats.FLOAT,
+        unit: 'A',
+        perms: [Characteristic.Perms.READ, Characteristic.Perms.NOTIFY]
+      }));
+    }
+  }
+  
+  // 서비스 등록
+  api.hap.Service.EveEnergyService = EveEnergyService;
+  
+  // 플랫폼 등록
   api.registerPlatform('homebridge-kepco-energy-meter', 'KEPCOEnergyMeter', KEPCOPlatform);
 };

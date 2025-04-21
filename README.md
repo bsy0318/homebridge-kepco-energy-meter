@@ -98,6 +98,11 @@ HomeBridge UI를 통해 구성하는 경우:
 | `deviceName` | 장치 표시 이름 | "KEPCO Energy Meter" |
 | `deviceType` | 장치 유형 | "energymeter" |
 | `pollingInterval` | 데이터 업데이트 주기 (분) | 10 |
+| `displayOutlet` | 콘센트로 표시 여부 | true |
+| `displayCurrentPower` | 현재 전력 사용량 센서 표시 여부 | true |
+| `displayTotalEnergy` | 총 에너지 사용량 센서 표시 여부 | true |
+| `powerDisplayType` | 전력 표시 센서 유형 (lightSensor, temperatureSensor, humiditySensor) | lightSensor |
+| `useEveEnergyService` | Eve Energy 호환 에너지 모니터링 사용 여부 | true |
 
 ## 문제 해결
 
