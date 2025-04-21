@@ -32,7 +32,17 @@
    - `config.schema.json`
    - `ui.schema.json`
 
-4. 의존성을 설치합니다:
+4. 파일 권한 변경:
+   ```bash
+   sudo chmod -R 755 /var/lib/homebridge/node_modules/homebridge-kepco-energy-meter/
+   ```
+
+5. 파일 소유권 변경:
+   ```bash
+   sudo chown -R homebridge:homebridge /var/lib/homebridge/node_modules/homebridge-kepco-energy-meter/
+   ```
+
+6. 의존성을 설치합니다:
    ```bash
    npm install
    ```
