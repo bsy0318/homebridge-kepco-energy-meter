@@ -263,7 +263,7 @@ class KEPCOPlatform {
         
         // 센서 서비스 - 현재 전력 소비량을 표시
         const powerService = accessory.getService('현재 에너지 소비량') ||
-                             accessory.getService(Service.LightSensor);
+                             accessory.getServiceById(Service.LightSensor, 'current-power');
         if (powerService) {
           // LightSensor의 CurrentAmbientLightLevel을 사용하여 현재 전력 표시
           powerService.updateCharacteristic(
@@ -274,7 +274,7 @@ class KEPCOPlatform {
         
         // 센서 서비스 - 총 에너지 소비량을 표시
         const totalEnergyService = accessory.getService('예상 에너지 소비량') ||
-                                  accessory.getService('Total Energy Consumption');
+                                  accessory.getServiceById(Service.TemperatureSensor, 'total-energy');
         if (totalEnergyService && totalEnergyService.getCharacteristic(Characteristic.CurrentTemperature)) {
           // 일부 센서는 온도 특성을 사용하여 데이터를 표시할 수 있음
           totalEnergyService.updateCharacteristic(
@@ -308,7 +308,8 @@ class KEPCOPlatform {
     }
     
     // 현재 전력 소비량을 조명 센서로 표시 (보조 표시)
-    let powerService = accessory.getService('현재 에너지 소비량');
+    let powerService = accessory.getService('현재 에너지 소비량') || 
+                       accessory.getServiceById(Service.LightSensor, 'current-power');
     
     if (!powerService) {
       this.log.debug('Creating Light Sensor service for current power');
@@ -316,7 +317,8 @@ class KEPCOPlatform {
     }
     
     // 총 에너지 소비량을 온도 센서로 표시 (보조 표시)
-    let totalEnergyService = accessory.getService('예상 에너지 소비량');
+    let totalEnergyService = accessory.getService('예상 에너지 소비량') || 
+                             accessory.getServiceById(Service.TemperatureSensor, 'total-energy');
     
     if (!totalEnergyService) {
       this.log.debug('Creating Temperature Sensor service for total energy');
