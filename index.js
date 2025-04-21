@@ -218,6 +218,11 @@ class KEPCOPlatform {
         this.log.debug(`총 에너지 사용량: ${this.totalEnergyConsumption} kWh`);
       }
       
+      // 전력량 값이 0인 경우 로그 남기기
+      if (this.currentPowerConsumption <= 0 && this.totalEnergyConsumption <= 0) {
+        this.log.warn('전력 사용량이 0으로 반환되었습니다. 응답 데이터를 확인하세요: ' + JSON.stringify(data));
+      }
+      
       // Extract power factor if available (대부분의 경우 HTML에서는 이 값을 얻기 어려울 수 있음)
       if (data['역률(지상)'] !== undefined && data['역률(지상)'] !== null) {
         this.powerFactor = parseFloat(data['역률(지상)']);

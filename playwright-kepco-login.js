@@ -205,7 +205,7 @@ class KEPCOLogin {
   }
 
   /**
-   * KEPCO API로부터 전력 사용량 데이터 가져오기
+   * KEPCO API로부터 전력 사용량 데이터 가져오기 - API 직접 호출 방식
    */
   async getPowerData(sessionInfo, simple = true, scrapDate = new Date().toISOString().split('T')[0]) {
     if (!sessionInfo || !sessionInfo.sessionValid || !sessionInfo.page) {
@@ -215,81 +215,72 @@ class KEPCOLogin {
     const page = sessionInfo.page;
     
     try {
-      // 데이터 페이지로 이동 (실시간 모니터링)
-      this.log.debug('전력 데이터 페이지 로딩 중...');
-      await page.goto('https://pp.kepco.co.kr/rm/rm0201.do', {
-        waitUntil: 'networkidle',
-        timeout: 30000
-      });
+      this.log.debug('API를 통해 전력 데이터 요청 중...');
       
-      // 페이지 로딩 대기
-      await page.waitForSelector('.cont_area', { state: 'visible', timeout: 15000 });
-      
-      // JavaScript를 통해 데이터 추출
-      this.log.debug('전력 데이터 추출 중...');
-      const powerData = await page.evaluate(() => {
-        // 브라우저 콘솔에서 실행되는 코드
+      // API 요청 바로 실행
+      const apiResponse = await page.evaluate(async () => {
         try {
-          // 데이터 요소 찾기
-          const realTimeUsage = document.querySelector('.kwh');
-          const predictedUsage = document.querySelector('.predict-current');
-          const monthlyBill = document.querySelector('.price');
+          const response = await fetch('https://pp.kepco.co.kr/rm/getRM0201.do', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              menuType: "time",
+              TOU: false
+            }),
+            credentials: 'include'
+          });
           
-          // 데이터 파싱
-          const data = {
-            '실시간사용량(kWh)': realTimeUsage ? parseFloat(realTimeUsage.textContent.replace(/[^0-9.]/g, '')) : 0,
-            '예상_전력사용량': predictedUsage ? parseFloat(predictedUsage.textContent.replace(/[^0-9.]/g, '')) : 0,
-            '당월_예상_청구금액': monthlyBill ? parseFloat(monthlyBill.textContent.replace(/[^0-9.]/g, '')) : 0
-          };
+          if (!response.ok) {
+            throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
+          }
           
-          return data;
+          return await response.json();
         } catch (error) {
-          console.error(`데이터 추출 오류: ${error.message}`);
           return { error: error.message };
         }
       });
       
-      // 추출된 데이터 확인
-      if (powerData.error) {
-        throw new Error(`데이터 추출 중 오류: ${powerData.error}`);
+      // 요청 실패 처리
+      if (apiResponse.error) {
+        throw new Error(`API 요청 실패: ${apiResponse.error}`);
       }
       
-      this.log.debug(`추출된 전력 데이터: ${JSON.stringify(powerData)}`);
+      this.log.debug(`API 응답 데이터: ${JSON.stringify(apiResponse)}`);
       
-      // 상세 데이터가 필요한 경우 API 요청을 인터셉트하여 얻을 수도 있음
-      if (!simple) {
-        this.log.debug('상세 전력 데이터 요청 중...');
-        // 네트워크 요청 모니터링 설정
-        let detailedData = null;
+      // API 응답 데이터 정리 - 실시간 사용량 파싱
+      const powerData = {
+        '실시간사용량(kWh)': 0,
+        '예상_전력사용량': 0,
+        '당월_예상_청구금액': 0
+      };
+      
+      // 응답 데이터에서 필요한 정보 추출
+      if (apiResponse && apiResponse.data) {
+        const data = apiResponse.data;
         
-        const responsePromise = page.waitForResponse(
-          response => response.url().includes('getRM0201.do'),
-          { timeout: 10000 }
-        );
-        
-        // API 요청 트리거
-        await page.evaluate(() => {
-          // 브라우저에서 API 요청 트리거
-          if (typeof refreshMain === 'function') {
-            refreshMain();
-          }
-        });
-        
-        // API 응답 대기
-        try {
-          const response = await responsePromise;
-          if (response.ok()) {
-            detailedData = await response.json();
-            this.log.debug('상세 API 데이터 수신 성공');
-          }
-        } catch (e) {
-          this.log.warn(`API 응답 대기 시간 초과 또는 오류: ${e.message}`);
+        // 실시간 사용량 추출
+        if (data.curMpEscs !== undefined && data.curMpEscs !== null) {
+          powerData['실시간사용량(kWh)'] = parseFloat(data.curMpEscs) || 0;
         }
         
-        if (detailedData) {
-          // API 데이터와 HTML 데이터를 병합
-          return { ...powerData, ...detailedData };
+        // 예상 전력 사용량 추출
+        if (data.mpeEscs !== undefined && data.mpeEscs !== null) {
+          powerData['예상_전력사용량'] = parseFloat(data.mpeEscs) || 0;
         }
+        
+        // 예상 청구 금액 추출
+        if (data.totEsbills !== undefined && data.totEsbills !== null) {
+          powerData['당월_예상_청구금액'] = parseFloat(data.totEsbills) || 0;
+        }
+        
+        // 전체 API 응답 데이터 병합 (상세 정보가 필요한 경우)
+        if (!simple) {
+          Object.assign(powerData, data);
+        }
+      } else {
+        this.log.warn('API 응답에서 data 필드를 찾을 수 없습니다.');
       }
       
       return powerData;

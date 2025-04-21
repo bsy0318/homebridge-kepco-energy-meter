@@ -46,6 +46,8 @@
    ```bash
    sudo npm install
    sudo npm link
+   npx playwright install
+   npx playwright install chrome
    ```
 
 ## 구성
