@@ -22,7 +22,7 @@ class KEPCOPlatform {
     this.displayOutlet = config.displayOutlet !== undefined ? config.displayOutlet : true;
     this.displayCurrentPower = config.displayCurrentPower !== undefined ? config.displayCurrentPower : true;
     this.displayTotalEnergy = config.displayTotalEnergy !== undefined ? config.displayTotalEnergy : true;
-    this.powerDisplayType = config.powerDisplayType || 'lightSensor';
+    this.powerDisplayType = config.powerDisplayType || 'temperatureSensor'; // 기본값을 온도 센서로 변경
     this.useEveEnergyService = config.useEveEnergyService !== undefined ? config.useEveEnergyService : true;
 
     // Default values
@@ -126,7 +126,7 @@ class KEPCOPlatform {
       "displayOutlet": true,
       "displayCurrentPower": true,
       "displayTotalEnergy": true,
-      "powerDisplayType": "lightSensor",
+      "powerDisplayType": "temperatureSensor",
       "useEveEnergyService": true
     };
   }
@@ -143,6 +143,15 @@ class KEPCOPlatform {
             Math.max(0.0001, this.currentPowerConsumption / 1000) // lux 값 (최소 0.0001)
           );
         }
+        
+        // 항상 활성 상태로 표시하여 메인 화면에 표시
+        if (service.testCharacteristic(Characteristic.StatusActive)) {
+          service.updateCharacteristic(
+            Characteristic.StatusActive,
+            true
+          );
+        }
+        
         break;
         
       case 'temperatureSensor':
@@ -152,6 +161,23 @@ class KEPCOPlatform {
             Math.min(100, this.currentPowerConsumption / 100) // 온도 값
           );
         }
+        
+        // 항상 활성 상태로 표시하여 메인 화면에 표시
+        if (service.testCharacteristic(Characteristic.StatusActive)) {
+          service.updateCharacteristic(
+            Characteristic.StatusActive,
+            true
+          );
+        }
+        
+        // 오류 없음으로 표시
+        if (service.testCharacteristic(Characteristic.StatusFault)) {
+          service.updateCharacteristic(
+            Characteristic.StatusFault,
+            Characteristic.StatusFault.NO_FAULT
+          );
+        }
+        
         break;
         
       case 'humiditySensor':
@@ -161,6 +187,15 @@ class KEPCOPlatform {
             Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100)) // 습도 값 (0-100%)
           );
         }
+        
+        // 항상 활성 상태로 표시하여 메인 화면에 표시
+        if (service.testCharacteristic(Characteristic.StatusActive)) {
+          service.updateCharacteristic(
+            Characteristic.StatusActive,
+            true
+          );
+        }
+        
         break;
     }
   }
@@ -282,14 +317,50 @@ class KEPCOPlatform {
       case 'lightSensor':
         service.getCharacteristic(Characteristic.CurrentAmbientLightLevel)
           .onGet(() => Math.max(0.0001, this.currentPowerConsumption / 1000)); // lux 값은 0.0001 이상이어야 함
+          
+        // HomeKit 메인 화면에 표시되도록 StatusActive와 StatusLowBattery 추가
+        if (!service.testCharacteristic(Characteristic.StatusActive)) {
+          service.addCharacteristic(Characteristic.StatusActive);
+        }
+        service.getCharacteristic(Characteristic.StatusActive)
+          .onGet(() => true);
+        
+        if (!service.testCharacteristic(Characteristic.Name)) {
+          service.addCharacteristic(Characteristic.Name);
+        }
+        service.getCharacteristic(Characteristic.Name)
+          .onGet(() => '현재 에너지 소비량');
+        
         break;
       case 'temperatureSensor':
         service.getCharacteristic(Characteristic.CurrentTemperature)
           .onGet(() => Math.min(100, this.currentPowerConsumption / 100)); // 온도 범위 조정
+        
+        // HomeKit 메인 화면에 표시되도록 StatusActive와 StatusLowBattery 추가
+        if (!service.testCharacteristic(Characteristic.StatusActive)) {
+          service.addCharacteristic(Characteristic.StatusActive);
+        }
+        service.getCharacteristic(Characteristic.StatusActive)
+          .onGet(() => true);
+          
+        if (!service.testCharacteristic(Characteristic.StatusFault)) {
+          service.addCharacteristic(Characteristic.StatusFault);
+        }
+        service.getCharacteristic(Characteristic.StatusFault)
+          .onGet(() => Characteristic.StatusFault.NO_FAULT);
+        
         break;
       case 'humiditySensor':
         service.getCharacteristic(Characteristic.CurrentRelativeHumidity)
           .onGet(() => Math.min(100, Math.max(0, (this.currentPowerConsumption / 5000) * 100))); // 습도는 0-100%
+        
+        // HomeKit 메인 화면에 표시되도록 StatusActive 추가
+        if (!service.testCharacteristic(Characteristic.StatusActive)) {
+          service.addCharacteristic(Characteristic.StatusActive);
+        }
+        service.getCharacteristic(Characteristic.StatusActive)
+          .onGet(() => true);
+        
         break;
     }
   }

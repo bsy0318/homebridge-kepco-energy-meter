@@ -101,8 +101,14 @@ HomeBridge UI를 통해 구성하는 경우:
 | `displayOutlet` | 콘센트로 표시 여부 | true |
 | `displayCurrentPower` | 현재 전력 사용량 센서 표시 여부 | true |
 | `displayTotalEnergy` | 총 에너지 사용량 센서 표시 여부 | true |
-| `powerDisplayType` | 전력 표시 센서 유형 (lightSensor, temperatureSensor, humiditySensor) | lightSensor |
+| `powerDisplayType` | 전력 표시 센서 유형 (lightSensor, temperatureSensor, humiditySensor) | temperatureSensor |
 | `useEveEnergyService` | Eve Energy 호환 에너지 모니터링 사용 여부 | true |
+
+### 표시 유형 참고사항
+
+- `temperatureSensor`: 온도 센서 형태로 표시
+- `lightSensor`: 빛 센서 형태로 표시 
+- `humiditySensor`: 습도 센서 형태로 표시
 
 ## 문제 해결
 

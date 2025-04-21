@@ -68,13 +68,13 @@
       "powerDisplayType": {
         "title": "Power Display Sensor Type",
         "type": "string",
-        "default": "lightSensor",
+        "default": "temperatureSensor",
         "oneOf": [
           { "title": "Light Sensor", "enum": ["lightSensor"] },
           { "title": "Temperature Sensor", "enum": ["temperatureSensor"] },
           { "title": "Humidity Sensor", "enum": ["humiditySensor"] }
         ],
-        "description": "Sensor type for displaying power (Light/Temperature/Humidity)"
+        "description": "Sensor type for displaying power (Light/Temperature/Humidity - Temperature is most visible in HomeKit)"
       },
       "useEveEnergyService": {
         "title": "Enable Eve Energy Monitoring",
